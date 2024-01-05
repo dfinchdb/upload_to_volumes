@@ -24,26 +24,18 @@ def upload_dir() -> None:
     upload_files_config = configparser.ConfigParser()
     upload_files_config.read(upload_files_config_path)
     file_cleanup = ast.literal_eval(upload_files_config["options"]["file_cleanup"])
-    source_dir = (
-        pathlib.Path(__file__).parents[2]
-        / "fixtures"
-        / "raw_data"
-        / "sample_eve_data"
-        / "csv_files"
-    )
-    other_source_dir = pathlib.Path(__file__).parents[2] / "fixtures" / "schema_data"
-    dest_dir = ast.literal_eval(upload_files_config["paths"]["destination"])
-    other_dest_dir = ast.literal_eval(upload_files_config["paths"]["destination"])
+    paths = ast.literal_eval(upload_files_config["paths"]["uc_paths"])
 
     # Removes copied files IF "file_cleanup" is set to True in "upload_files_config.ini"
     if file_cleanup == True:
-        cleanup_files(dest_dir)
-
-    # Copies files from Workspace directory to Volumes
+        for path in paths:
+            cleanup_files(path["destination"])
     else:
-        dbutils.fs.cp(f"file:{source_dir}", dest_dir, recurse=True)
-        dbutils.fs.cp(f"file:{other_source_dir}", other_dest_dir, recurse=True)
-
+        for path in paths:
+            db_source = pathlib.Path(__file__).parents[2]
+            source_dir = f'file:{str(db_source)}{path["source"]}'
+            dest_dir = path["destination"]
+            dbutils.fs.cp(source_dir, dest_dir, recurse=True)
 
 if __name__ == "__main__":
     upload_dir()
