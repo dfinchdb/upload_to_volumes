@@ -2,8 +2,26 @@ import ast
 import configparser
 import pathlib
 
+from pyspark.sql import SparkSession
 
-def cleanup_files(dest_dir: str) -> None:
+
+def get_dbutils(spark: SparkSession):
+    dbutils = None
+
+    if spark.conf.get("spark.databricks.service.client.enabled") == "true":
+        from pyspark.dbutils import DBUtils
+
+        dbutils = DBUtils(spark)
+
+    else:
+        import IPython
+
+        dbutils = IPython.get_ipython().user_ns["dbutils"]
+
+    return dbutils
+
+
+def cleanup_files(dbutils, dest_dir: str) -> None:
     """Removes the copied files & directory from UC Volumes
 
     Args:
@@ -26,16 +44,21 @@ def upload_dir() -> None:
     file_cleanup = ast.literal_eval(upload_files_config["options"]["file_cleanup"])
     paths = ast.literal_eval(upload_files_config["paths"]["uc_paths"])
 
+    # Get or Create SparkSession & dbutils
+    spark = SparkSession.builder.getOrCreate()
+    dbutils = get_dbutils(spark)
+
     # Removes copied files IF "file_cleanup" is set to True in "upload_files_config.ini"
     if file_cleanup == True:
         for path in paths:
-            cleanup_files(path["destination"])
+            cleanup_files(dbutils, path["destination"])
     else:
         for path in paths:
             db_source = pathlib.Path(__file__).parents[2]
             source_dir = f'file:{str(db_source)}{path["source"]}'
             dest_dir = path["destination"]
             dbutils.fs.cp(source_dir, dest_dir, recurse=True)
+
 
 if __name__ == "__main__":
     upload_dir()
